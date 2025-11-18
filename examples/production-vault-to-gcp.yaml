@@ -1,0 +1,86 @@
+apiVersion: lestak.sh/v1alpha1
+kind: VaultSecretSync
+metadata:
+  name: multi-secret-gcp-sync
+  namespace: production
+spec:
+  # Source: Multiple secrets from Vault
+  source:
+    vault:
+      address: "https://vault.prod.example.com:8200"
+      namespace: "production"
+      authMethod: "kubernetes"
+      role: "prod-secret-sync"
+      # Base path - will sync all secrets under this path
+      path: "secret/data/production"
+
+  # Destination: GCP Secret Manager with multiple replicas
+  destinations:
+    - gcp:
+        project: "prod-gcp-project"
+        # Name will be auto-generated from Vault path
+        replicationLocations:
+          - "us-central1"
+          - "us-east1"
+          - "us-west1"
+        labels:
+          environment: "production"
+          team: "platform"
+          cost-center: "engineering"
+          compliance: "soc2"
+
+  # Sync configuration
+  syncConfig:
+    autoSync: true
+    syncInterval: "10m"
+    deleteOnRemove: true
+
+  # Transform: Filter sensitive internal keys
+  transforms:
+    exclude:
+      - ".*_internal$"
+      - ".*_test$"
+      - "^temp_.*"
+
+  # Notifications for production monitoring
+  notifications:
+    - slack:
+        urlSecret: "slack-webhook-secret"
+        urlSecretKey: "webhook-url"
+        events:
+          - "sync.success"
+          - "sync.failure"
+          - "sync.deleted"
+        body: |
+          🔐 Vault Secret Sync Event
+
+          **Status**: {{.Event}}
+          **Secret**: {{.VaultSecretSync.Name}}
+          **Namespace**: {{.VaultSecretSync.Namespace}}
+          **Timestamp**: {{.Timestamp}}
+          {{- if .Error}}
+          **Error**: {{.Error}}
+          {{- end}}
+
+    - webhook:
+        url: "https://monitoring.example.com/api/alerts"
+        method: "POST"
+        headers:
+          Content-Type: "application/json"
+          X-Alert-Source: "vault-secret-sync"
+        headerSecret: "webhook-auth-secret"
+        events:
+          - "sync.failure"
+        body: |
+          {
+            "alert_type": "vault_sync_failure",
+            "severity": "high",
+            "service": "vault-secret-sync",
+            "environment": "production",
+            "details": {
+              "sync_name": "{{.VaultSecretSync.Name}}",
+              "namespace": "{{.VaultSecretSync.Namespace}}",
+              "error": "{{.Error}}",
+              "timestamp": "{{.Timestamp}}"
+            }
+          }
