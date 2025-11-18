@@ -88,7 +88,7 @@ Each `VaultSecretSync` configuration is entirely self-contained - the `spec` con
 stores:
   vault:
     address: "https://vault.example.com"
-    
+
   gcp:
     project: "my-gcp-project"
 ```

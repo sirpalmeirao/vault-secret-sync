@@ -16,7 +16,7 @@ events:
     # The token used for authentication.
     token: "your-token"
     # TLS configuration for the event server.
-    tls: 
+    tls:
       certFile: "/path/to/certfile"
       keyFile: "/path/to/keyfile"
   # Whether to deduplicate events.
@@ -59,7 +59,7 @@ metrics:
     # The token used for authentication.
     token: "your-token"
     # TLS configuration for the metrics server.
-    tls: 
+    tls:
       certFile: "/path/to/certfile"
       keyFile: "/path/to/keyfile"
 
