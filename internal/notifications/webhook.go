@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/robertlestak/vault-secret-sync/api/v1alpha1"
 	"github.com/robertlestak/vault-secret-sync/internal/backend"
@@ -57,7 +58,9 @@ func triggerWebhook(ctx context.Context, message v1alpha1.NotificationMessage, w
 	for key, value := range webhook.Headers {
 		req.Header.Set(key, value)
 	}
-	c := &http.Client{}
+	c := &http.Client{
+		Timeout: 30 * time.Second,
+	}
 	// Execute the request
 	resp, err := c.Do(req)
 	if err != nil {
@@ -157,7 +160,10 @@ NotifLoop:
 		l.Debug("no webhooks to trigger")
 		return nil
 	}
-	workers := 100
+	workers := 10
+	if config.Config.Notifications != nil && config.Config.Notifications.WorkerPoolSize > 0 {
+		workers = config.Config.Notifications.WorkerPoolSize
+	}
 	jobs := make(chan webhookJob, len(jobsToDo))
 	res := make(chan webhookJob, len(jobsToDo))
 	if len(jobsToDo) < workers {
@@ -171,13 +177,20 @@ NotifLoop:
 	}
 	close(jobs)
 	var errs []error
+	maxErrors := 1000 // Limit error collection to prevent memory exhaustion
 	for range jobsToDo {
 		job := <-res
 		if job.Error != nil {
-			errs = append(errs, job.Error)
+			if len(errs) < maxErrors {
+				errs = append(errs, job.Error)
+			}
 		}
 	}
 	if len(errs) > 0 {
+		if len(errs) >= maxErrors {
+			l.WithField("errors", errs).Error("failed to trigger webhooks (truncated)")
+			return fmt.Errorf("failed to trigger webhooks (truncated to %d): %v", maxErrors, errs)
+		}
 		l.WithField("errors", errs).Error("failed to trigger webhooks")
 		return fmt.Errorf("failed to trigger webhooks: %v", errs)
 	} else {

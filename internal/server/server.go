@@ -3,6 +3,7 @@ package server
 import (
 	"cmp"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -150,7 +151,7 @@ func eventAuthValid(r *http.Request) bool {
 			l.Debug("no token provided")
 			return false
 		}
-		if config.Config.Events.Security.Token != token {
+		if subtle.ConstantTimeCompare([]byte(config.Config.Events.Security.Token), []byte(token)) != 1 {
 			l.Debug("invalid token provided")
 			return false
 		}
@@ -186,7 +187,9 @@ func handleVaultEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
-	dec := json.NewDecoder(r.Body)
+	// Limit request body to 10MB to prevent memory exhaustion attacks
+	limitedReader := io.LimitReader(r.Body, 10*1024*1024)
+	dec := json.NewDecoder(limitedReader)
 	for {
 		var ev audit.ResponseEntry
 		if err := dec.Decode(&ev); err == io.EOF {

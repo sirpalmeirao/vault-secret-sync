@@ -67,9 +67,10 @@ type WebhookNotificationConfig struct {
 }
 
 type NotificationsConfig struct {
-	Email   *EmailNotificationConfig   `json:"email" yaml:"email"`
-	Slack   *SlackNotificationConfig   `json:"slack" yaml:"slack"`
-	Webhook *WebhookNotificationConfig `json:"webhook" yaml:"webhook"`
+	Email            *EmailNotificationConfig   `json:"email" yaml:"email"`
+	Slack            *SlackNotificationConfig   `json:"slack" yaml:"slack"`
+	Webhook          *WebhookNotificationConfig `json:"webhook" yaml:"webhook"`
+	WorkerPoolSize   int                        `json:"workerPoolSize" yaml:"workerPoolSize"`
 }
 
 type ServerSecurity struct {
@@ -199,6 +200,9 @@ func (c *ConfigFile) SetDefaults() error {
 		c.Queue = &QueueConfig{
 			Type: queue.QueueTypeMemory,
 		}
+	}
+	if c.Notifications != nil && c.Notifications.WorkerPoolSize == 0 {
+		c.Notifications.WorkerPoolSize = 10
 	}
 	return nil
 }
