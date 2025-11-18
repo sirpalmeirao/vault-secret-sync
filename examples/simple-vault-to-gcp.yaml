@@ -1,0 +1,21 @@
+apiVersion: lestak.sh/v1alpha1
+kind: VaultSecretSync
+metadata:
+  name: simple-vault-to-gcp
+  namespace: default
+spec:
+  # Minimal configuration - Source from Vault
+  source:
+    vault:
+      address: "https://vault.example.com:8200"
+      authMethod: "kubernetes"
+      role: "vault-secret-sync"
+      path: "secret/data/myapp/credentials"
+
+  # Destination - GCP Secret Manager
+  destinations:
+    - gcp:
+        project: "my-gcp-project"
+        name: "myapp-credentials"
+        replicationLocations:
+          - "us-central1"

@@ -41,68 +41,6 @@ As the operator itself is effectively `root` for lack of a better analogy, it is
 
 Every sync operation will instantiate a new client to the source and destination secret store, and will close the client after the operation is complete. At no time are client objects reused between sync operations. This is to ensure that the client is not left open and vulnerable to attack.
 
-#### AWS
-
-If you are running in AWS EKS, you can use IAM roles to grant the operator access to the AWS Secrets Manager. If you are running in a different environment, you can use the `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables to provide the operator with the necessary credentials. If you are using access keys, it is recommended to rotate these regularly, and utilize a project such as [External Secrets Operator](https://external-secrets.io/latest/) to manage the lifecycle of the access keys into the operator.
-
-For cross-account access you must configure an IAM role in your target account which can be assumed by the identity associated with the operator.
-
-Your role will need to have the following permissions:
-
-- `secretsmanager:CreateSecret`
-- `secretsmanager:UpdateSecret`
-- `secretsmanager:PutSecretValue`
-- `secretsmanager:DeleteSecret`
-- `secretsmanager:ReplicateSecretToRegions`
-- `secretsmanager:RemoveRegionsFromReplication`
-- `secretsmanager:ListSecrets`
-- `secretsmanager:ListSecretVersionIds`
-- `secretsmanager:DescribeSecret`
-- `secretsmanager:TagResource`
-
-Here is an example policy document:
-
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "secretsmanager:CreateSecret",
-                "secretsmanager:UpdateSecret",
-                "secretsmanager:PutSecretValue",
-                "secretsmanager:DeleteSecret",
-                "secretsmanager:ReplicateSecretToRegions",
-                "secretsmanager:RemoveRegionsFromReplication",
-                "secretsmanager:ListSecrets",
-                "secretsmanager:ListSecretVersionIds",
-                "secretsmanager:DescribeSecret",
-                "secretsmanager:TagResource"
-            ],
-            "Resource": "*"
-        }
-    ]
-}
-```
-
-and an example trusted entity configuration:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "AWS": "arn:aws:iam::1234567890:role/vault-secret-sync"
-      },
-      "Action": ["sts:AssumeRole", "sts:TagSession"],
-    }
-  ]
-}
-```
-
 #### GCP
 
 If you are running in GCP GKE, you can use GCP service accounts to grant the operator access to GCP Secret Manager. If you are running in a different environment, you can use the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to provide the operator with the necessary credentials. If you are using service accounts, it is recommended to rotate these regularly, and utilize a project such as [External Secrets Operator](https://external-secrets.io/latest/) to manage the lifecycle of the service account keys into the operator.
@@ -126,20 +64,6 @@ This identity associated with the operator must be granted the following permiss
 - `secretmanager.secrets.get`
 - `secretmanager.secrets.list`
 - `secretmanager.secrets.update`
-
-#### GitHub
-
-GitHub requires a GitHub App installed in the account with access to the level of secrets you desire. When you create your GitHub App, it will have an `installId`, `appId`, and `privateKey`. You will need to provide these to the operator to authenticate with GitHub. It is recommended to rotate the private key regularly, and utilize a project such as [External Secrets Operator](https://external-secrets.io/latest/) to manage the lifecycle of the private key into the operator.
-
-Heere is an example store configuration:
-
-```yaml
-stores:
-  github:
-    installId: 12345
-    appId: 67890
-    privateKeyPath: "/path/to/private/key"
-```
 
 ### HashiCorp Vault
 
