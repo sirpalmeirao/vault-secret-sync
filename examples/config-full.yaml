@@ -32,13 +32,12 @@ operator:
 
 # Configuration for the stores.
 stores:
-  aws:
-    region: "us-west-2"
-
-  github:
-    installId: 12345
-    appId: 67890
-    privateKeyPath: "/path/to/private/key"
+  gcp:
+    project: "your-gcp-project-id"
+    replicationLocations:
+      - "us-central1"
+    labels:
+      environment: "production"
 
 # Configuration for the queue.
 queue:

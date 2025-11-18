@@ -6,22 +6,16 @@ var (
 	ErrPathRequired = fmt.Errorf("path is required")
 
 	DriverNames = []DriverName{
-		DriverNameAws,
 		DriverNameGcp,
-		DriverNameGitHub,
 		DriverNameVault,
-		DriverNameHttp,
 	}
 )
 
 type DriverName string
 
 const (
-	DriverNameAws    DriverName = "aws"
-	DriverNameGcp    DriverName = "gcp"
-	DriverNameGitHub DriverName = "github"
-	DriverNameVault  DriverName = "vault"
-	DriverNameHttp   DriverName = "http"
+	DriverNameGcp   DriverName = "gcp"
+	DriverNameVault DriverName = "vault"
 )
 
 func DriverIsSupported(driver DriverName) bool {

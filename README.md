@@ -1,14 +1,12 @@
 # HashiCorp Vault Secret Sync
 
-vault-secret-sync provides fully automated real-time secret syncronization from HashiCorp Vault to other remote secret stores. This enables you to take advantage of natively integrated cloud secret stores while maintaining an authoratative single source of truth in Vault. Both Open Source and Enterprise versions of Vault are supported.
+vault-secret-sync provides fully automated real-time secret syncronization from HashiCorp Vault to GCP Secret Manager. This enables you to take advantage of GCP's natively integrated secret store while maintaining an authoratative single source of truth in Vault. Both Open Source and Enterprise versions of Vault are supported.
 
 Currently, the following secret stores are supported:
 
-- Vault (kv2)
-- AWS Secrets Manager
-- GCP Secret Manager
-- GitHub Repository
-- GitHub Organization
+- Vault (kv2) - Source
+- GCP Secret Manager - Destination
+- Vault (kv2) - Destination (Vault-to-Vault sync)
 
 ## High Level Architecture
 
@@ -73,36 +71,12 @@ spec:
       address: "https://vault2.example.com"
       path: "hello/world"
       namespace: "robertlestak/example"
-  - aws:
-      name: "example-secret"
-      region: "us-west-2"
-      roleArn: "arn:aws:iam::123456789012:role/role-name"
-      encryptionKey: "alias/aws/secretsmanager"
-      replicaRegions: ["us-east-1"]
-      tags:
-        key: "value"
-        another: "tag"
-  - github:
-      repo: "example-repo"
-      owner: "robertlestak"
   - gcp:
       project: "example-project"
       name: "example-secret"
       labels:
         key: "value"
         another: "label"
-  - http:
-      url: "https://example.com/my/app"
-      method: "POST"
-      headerSecret: "default/header-secret"
-      headers:
-        Content-Type: "application/json"
-      template: |
-        {
-          "custom": {
-            "{{ .Key }}": "{{ .Value }}"
-          }
-        }
   notificationsTemplate: "default/notification-template/notification.yaml" # optional, default empty. Set to the path of the ConfigMap containing the notification template
   notifications:
   - email:
@@ -117,7 +91,7 @@ spec:
         Source: {{ .VaultSecretSync.Spec.Source.Address }}
         Destination: {{ .VaultSecretSync.Spec.Dest | json }}
   - slack:
-      events: ["failure"]  
+      events: ["failure"]
       url: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
       body: |
         The sync operation has failed.
@@ -241,39 +215,6 @@ The Vault destination driver will write the secret to the target Vault instance.
       merge: false # optional, default false. false will overwrite existing secrets with values from vault, merge will merge the two, overwriting only the keys that are present in the new secret
 ```
 
-#### GitHub (Driver: `github`)
-
-The GitHub destination driver will write the secret to a GitHub repository or organization.
-
-```yaml
-  dest:
-  - github:
-      repo: "example-repo"
-      env: "" # optional, default empty. Set to a specific environment to sync to within a repo if needed
-      owner: "robertlestak" # optional, will default to the company org
-      org: false # optional, default false. set to true to set org secret rather than repo secret
-      merge: false # optional, default true. false will overwrite existing secrets with values from vault, merge will merge the two
-```
-
-Note that since GitHub secrets do not have a concept of pathing, if you are syncing a multi-level regex source path, the secrets will be overwritten in the destination repository. If you need to sync multiple source paths to a single destination repository, you will need to set `merge: true`.
-
-#### AWS Secrets Manager (Driver: `aws`)
-
-The AWS destination driver will write the secret to AWS Secrets Manager.
-
-```yaml
-  dest:
-  - aws:
-      name: "example-secret"
-      region: "us-west-2" # optional, default us-east-1
-      roleArn: "arn:aws:iam::123456789012:role/role-name" # optional, default empty. Set to a specific role to assume when writing to secrets manager
-      encryptionKey: "alias/aws/secretsmanager" # optional, default empty. Set to a specific KMS key to use for encryption
-      replicaRegions: [] # optional, default empty. Set to a list of regions to replicate the secret to
-      tags: # optional, default empty. Set to a map of tags to apply to the secret
-        key: "value"
-        another: "tag"
-```
-
 #### GCP Secret Manager (Driver: `gcp`)
 
 The GCP destination driver will write the secret to GCP Secret Manager in the specified project.
@@ -328,7 +269,7 @@ Notifications can be configured to send a message to a configured receiver when 
         Source: {{ .VaultSecretSync.Spec.Source.Address }}
         Destination: {{ .VaultSecretSync.Spec.Dest | json }}
   - slack:
-      events: ["failure"]  
+      events: ["failure"]
       url: "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
       urlSecret: "default/slack-url-secret" # optional, default empty. Set to the path of the secret containing the slack webhook URL
       urlSecretKey: "url" # optional, default "url". Set to the key of the secret containing the slack webhook URL when using urlSecret

@@ -6,10 +6,7 @@ import (
 
 	"github.com/robertlestak/vault-secret-sync/api/v1alpha1"
 	"github.com/robertlestak/vault-secret-sync/pkg/driver"
-	"github.com/robertlestak/vault-secret-sync/stores/aws"
 	"github.com/robertlestak/vault-secret-sync/stores/gcp"
-	"github.com/robertlestak/vault-secret-sync/stores/github"
-	"github.com/robertlestak/vault-secret-sync/stores/httpstore"
 	"github.com/robertlestak/vault-secret-sync/stores/vault"
 	log "github.com/sirupsen/logrus"
 )
@@ -58,14 +55,8 @@ func setStoreGlobalDefaults(s *v1alpha1.VaultSecretSync) error {
 	l.Trace("set dest defaults")
 	for _, d := range s.Spec.Dest {
 		var err error
-		if d.AWS != nil && DefaultConfigs[driver.DriverNameAws] != nil {
-			err = d.AWS.SetDefaults(DefaultConfigs[driver.DriverNameAws].AWS)
-		}
 		if d.GCP != nil && DefaultConfigs[driver.DriverNameGcp] != nil {
 			err = d.GCP.SetDefaults(DefaultConfigs[driver.DriverNameGcp].GCP)
-		}
-		if d.GitHub != nil && DefaultConfigs[driver.DriverNameGitHub] != nil {
-			err = d.GitHub.SetDefaults(DefaultConfigs[driver.DriverNameGitHub].GitHub)
 		}
 		if d.Vault != nil && DefaultConfigs[driver.DriverNameVault] != nil {
 			err = d.Vault.SetDefaults(DefaultConfigs[driver.DriverNameVault].Vault)
@@ -104,14 +95,6 @@ func InitSyncConfigClients(sc v1alpha1.VaultSecretSync) (*SyncClients, error) {
 	}
 	for i, d := range sc.Spec.Dest {
 		var err error
-		if d.AWS != nil {
-			scs.Dest = append(scs.Dest, &aws.AwsClient{})
-			scs.Dest[i], err = aws.NewClient(d.AWS)
-			if err != nil {
-				l.Error(err)
-				return nil, err
-			}
-		}
 		if d.GCP != nil {
 			scs.Dest = append(scs.Dest, &gcp.GcpClient{})
 			scs.Dest[i], err = gcp.NewClient(d.GCP)
@@ -120,25 +103,9 @@ func InitSyncConfigClients(sc v1alpha1.VaultSecretSync) (*SyncClients, error) {
 				return nil, err
 			}
 		}
-		if d.GitHub != nil {
-			scs.Dest = append(scs.Dest, &github.GitHubClient{})
-			scs.Dest[i], err = github.NewClient(d.GitHub)
-			if err != nil {
-				l.Error(err)
-				return nil, err
-			}
-		}
 		if d.Vault != nil {
 			scs.Dest = append(scs.Dest, &vault.VaultClient{})
 			scs.Dest[i], err = vault.NewClient(d.Vault)
-			if err != nil {
-				l.Error(err)
-				return nil, err
-			}
-		}
-		if d.HTTP != nil {
-			scs.Dest = append(scs.Dest, &httpstore.HTTPClient{})
-			scs.Dest[i], err = httpstore.NewClient(d.HTTP)
 			if err != nil {
 				l.Error(err)
 				return nil, err

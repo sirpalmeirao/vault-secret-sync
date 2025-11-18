@@ -35,40 +35,22 @@ func SetStoreDefaults(sc *v1alpha1.StoreConfig) {
 	if DefaultConfigs == nil {
 		DefaultConfigs = make(map[driver.DriverName]*v1alpha1.StoreConfig)
 	}
-	if sc.AWS != nil {
-		DefaultConfigs[driver.DriverNameAws] = sc
-	}
 	if sc.GCP != nil {
 		DefaultConfigs[driver.DriverNameGcp] = sc
 	}
-	if sc.GitHub != nil {
-		DefaultConfigs[driver.DriverNameGitHub] = sc
-	}
 	if sc.Vault != nil {
 		DefaultConfigs[driver.DriverNameVault] = sc
-	}
-	if sc.HTTP != nil {
-		DefaultConfigs[driver.DriverNameHttp] = sc
 	}
 }
 
 func DestinationStoreNames(sc v1alpha1.VaultSecretSync) []driver.DriverName {
 	var destDrivers []driver.DriverName
 	for _, d := range sc.Spec.Dest {
-		if d.AWS != nil {
-			destDrivers = append(destDrivers, driver.DriverNameAws)
-		}
 		if d.GCP != nil {
 			destDrivers = append(destDrivers, driver.DriverNameGcp)
 		}
-		if d.GitHub != nil {
-			destDrivers = append(destDrivers, driver.DriverNameGitHub)
-		}
 		if d.Vault != nil {
 			destDrivers = append(destDrivers, driver.DriverNameVault)
-		}
-		if d.HTTP != nil {
-			destDrivers = append(destDrivers, driver.DriverNameHttp)
 		}
 	}
 	return destDrivers

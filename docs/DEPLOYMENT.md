@@ -17,7 +17,6 @@ Currently, the following queues are supported:
 - `memory`: The default queue, which uses the operator's internal memory for queuing and processing. This is only recommended for small to moderately sized deployments, and cannot be used in a microservices deployment model.
 - `redis`: The Redis queue uses a Redis instance for queuing and processing.
 - `nats`: The NATS queue uses a NATS instance for queuing and processing.
-- `sqs`: The SQS queue uses an AWS SQS queue for queuing and processing.
 
 An example of a fully configured `YAML` file can be found in [examples/config-full.yaml](../examples/config-full.yaml). Here's an example of a minimal configuration file:
 
@@ -90,8 +89,8 @@ stores:
   vault:
     address: "https://vault.example.com"
     
-  github:
-    owner: "example-org"
+  gcp:
+    project: "my-gcp-project"
 ```
 
 Fields explictly defined in the `VaultSecretSync` resource will take precedence over the defaults set in the `stores` configuration, however if a field is not provided in the `VaultSecretSync` resource, the default value from the `stores` configuration will be used. Defaults are evaluated at runtime and are not persisted back to the backend. This can be both a feature and a bug, depending on your use case. Once you set a central default, be cognizant of the fact that changing the default _will_ change the behavior of existing `VaultSecretSync` resources. For this reason it's generally recommended to not set global defaults and instead rely on fields being explicitly declared on the `VaultSecretSync` resources themselves, unless you know for certain that you want to change the behavior of all resources at once.
