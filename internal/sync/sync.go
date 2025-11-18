@@ -73,11 +73,20 @@ func syncJobWorker(ctx context.Context, jobHolder <-chan SyncJob, errChan chan e
 	l.Trace("start")
 	defer l.Trace("end")
 
-	for job := range jobHolder {
-		if err := doSync(ctx, job); err != nil {
-			errChan <- err
-		} else {
-			errChan <- nil
+	for {
+		select {
+		case <-ctx.Done():
+			l.Debug("context cancelled, stopping worker")
+			return
+		case job, ok := <-jobHolder:
+			if !ok {
+				return
+			}
+			if err := doSync(ctx, job); err != nil {
+				errChan <- err
+			} else {
+				errChan <- nil
+			}
 		}
 	}
 }
@@ -93,19 +102,25 @@ func processSyncJobs(ctx context.Context, jobHolder []SyncJob) error {
 		workers = len(jobHolder)
 	}
 	for i := 0; i < workers; i++ {
-		go syncJobWorker(context.Background(), jobs, errChan)
+		go syncJobWorker(ctx, jobs, errChan)
 	}
 	for _, job := range jobHolder {
 		jobs <- job
 	}
 	close(jobs)
 	var errors []error
+	maxErrors := 1000 // Limit error collection to prevent memory exhaustion
 	for range jobHolder {
 		if err := <-errChan; err != nil {
-			errors = append(errors, err)
+			if len(errors) < maxErrors {
+				errors = append(errors, err)
+			}
 		}
 	}
 	if len(errors) > 0 {
+		if len(errors) >= maxErrors {
+			return fmt.Errorf("errors (truncated to %d): %v", maxErrors, errors)
+		}
 		return fmt.Errorf("errors: %v", errors)
 	}
 	return nil
@@ -122,11 +137,20 @@ func singleSyncWorker(ctx context.Context, sc *SyncClients, j SyncJob, dest chan
 	l.Trace("start")
 	defer l.Trace("end")
 
-	for d := range dest {
-		if err := CreateOne(ctx, j, sc.Source, d, sc.Source.GetPath(), d.GetPath()); err != nil {
-			errChan <- err
-		} else {
-			errChan <- nil
+	for {
+		select {
+		case <-ctx.Done():
+			l.Debug("context cancelled, stopping worker")
+			return
+		case d, ok := <-dest:
+			if !ok {
+				return
+			}
+			if err := CreateOne(ctx, j, sc.Source, d, sc.Source.GetPath(), d.GetPath()); err != nil {
+				errChan <- err
+			} else {
+				errChan <- nil
+			}
 		}
 	}
 }
@@ -141,19 +165,26 @@ func handleSingleSync(sc *SyncClients, j SyncJob) error {
 	if len(sc.Dest) < workers {
 		workers = len(sc.Dest)
 	}
+	ctx := context.Background()
 	for i := 0; i < workers; i++ {
-		go singleSyncWorker(context.Background(), sc, j, dest, errChan)
+		go singleSyncWorker(ctx, sc, j, dest, errChan)
 	}
 	for _, d := range sc.Dest {
 		dest <- d
 	}
 	close(dest)
+	maxErrors := 1000 // Limit error collection to prevent memory exhaustion
 	for range sc.Dest {
 		if err := <-errChan; err != nil {
-			errors = append(errors, err)
+			if len(errors) < maxErrors {
+				errors = append(errors, err)
+			}
 		}
 	}
 	if len(errors) > 0 {
+		if len(errors) >= maxErrors {
+			return fmt.Errorf("errors (truncated to %d): %v", maxErrors, errors)
+		}
 		return fmt.Errorf("errors: %v", errors)
 	}
 	return nil
@@ -164,19 +195,28 @@ func syncDeleteWorker(ctx context.Context, sc *SyncClients, j SyncJob, dest chan
 	l.Trace("start")
 	defer l.Trace("end")
 
-	for d := range dest {
-		if shouldFilterSecret(j, sc.Source.GetPath(), d.GetPath()) {
-			errChan <- nil
-			continue
-		}
-		if shouldDryRun(j, d, sc.Source.GetPath(), d.GetPath()) {
-			errChan <- nil
-			continue
-		}
-		if err := d.DeleteSecret(ctx, d.GetPath()); err != nil {
-			errChan <- err
-		} else {
-			errChan <- nil
+	for {
+		select {
+		case <-ctx.Done():
+			l.Debug("context cancelled, stopping worker")
+			return
+		case d, ok := <-dest:
+			if !ok {
+				return
+			}
+			if shouldFilterSecret(j, sc.Source.GetPath(), d.GetPath()) {
+				errChan <- nil
+				continue
+			}
+			if shouldDryRun(j, d, sc.Source.GetPath(), d.GetPath()) {
+				errChan <- nil
+				continue
+			}
+			if err := d.DeleteSecret(ctx, d.GetPath()); err != nil {
+				errChan <- err
+			} else {
+				errChan <- nil
+			}
 		}
 	}
 }
@@ -191,19 +231,26 @@ func handleSingleDelete(sc *SyncClients, j SyncJob) error {
 	if len(sc.Dest) < workers {
 		workers = len(sc.Dest)
 	}
+	ctx := context.Background()
 	for i := 0; i < workers; i++ {
-		go syncDeleteWorker(context.Background(), sc, j, dest, errChan)
+		go syncDeleteWorker(ctx, sc, j, dest, errChan)
 	}
 	for _, d := range sc.Dest {
 		dest <- d
 	}
 	close(dest)
+	maxErrors := 1000 // Limit error collection to prevent memory exhaustion
 	for range sc.Dest {
 		if err := <-errChan; err != nil {
-			errors = append(errors, err)
+			if len(errors) < maxErrors {
+				errors = append(errors, err)
+			}
 		}
 	}
 	if len(errors) > 0 {
+		if len(errors) >= maxErrors {
+			return fmt.Errorf("errors (truncated to %d): %v", maxErrors, errors)
+		}
 		return fmt.Errorf("errors: %v", errors)
 	}
 	return nil

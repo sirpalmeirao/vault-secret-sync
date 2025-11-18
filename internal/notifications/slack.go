@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/robertlestak/vault-secret-sync/api/v1alpha1"
 	"github.com/robertlestak/vault-secret-sync/internal/backend"
@@ -55,7 +56,10 @@ func sendSlackNotification(ctx context.Context, message v1alpha1.NotificationMes
 	if (slack.URL == nil || *slack.URL == "") && config.Config.Notifications.Slack.URL != "" {
 		slack.URL = &config.Config.Notifications.Slack.URL
 	}
-	resp, err := http.Post(*slack.URL, "application/json", bytes.NewBuffer(payloadBytes))
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	resp, err := client.Post(*slack.URL, "application/json", bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		backend.WriteEvent(
 			ctx,
@@ -150,7 +154,10 @@ NotifLoop:
 		l.Debug("no webhooks to trigger")
 		return nil
 	}
-	workers := 100
+	workers := 10
+	if config.Config.Notifications != nil && config.Config.Notifications.WorkerPoolSize > 0 {
+		workers = config.Config.Notifications.WorkerPoolSize
+	}
 	jobs := make(chan slackJob, len(jobsToDo))
 	res := make(chan slackJob, len(jobsToDo))
 	if len(jobsToDo) < workers {
@@ -164,13 +171,20 @@ NotifLoop:
 	}
 	close(jobs)
 	var errs []error
+	maxErrors := 1000 // Limit error collection to prevent memory exhaustion
 	for range jobsToDo {
 		job := <-res
 		if job.Error != nil {
-			errs = append(errs, job.Error)
+			if len(errs) < maxErrors {
+				errs = append(errs, job.Error)
+			}
 		}
 	}
 	if len(errs) > 0 {
+		if len(errs) >= maxErrors {
+			l.WithField("errors", errs).Error("failed to trigger Slack notifications (truncated)")
+			return fmt.Errorf("failed to trigger Slack notifications (truncated to %d): %v", maxErrors, errs)
+		}
 		l.WithField("errors", errs).Error("failed to trigger Slack notifications")
 		return fmt.Errorf("failed to trigger Slack notifications: %v", errs)
 	} else {
